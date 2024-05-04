@@ -211,7 +211,11 @@ func (m Model) View() string {
 // gets the infobox depending on whether m.showLogs is true or not
 func (m Model) getInfoBox() string {
 	curItem := m.getSelectedItem()
-	if m.showLogs {
+	if m.activeTab == int(containers) && m.showContainerLogs {
+		containerId := curItem.(containerItem).getId()
+		//TODO: handle error
+		rc, _ := m.dockerClient.GetContainerLogs(containerId)
+		m.logsPager.setReaderCloser(rc)
 		return moreInfoStyle.Render(m.logsPager.View())
 	}
 
