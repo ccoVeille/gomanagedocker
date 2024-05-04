@@ -28,7 +28,8 @@ type Model struct {
 	activeTab    int
 	width        int
 	height       int
-	pager        PagerModel
+	logsPager    PagerModel
+	showLogs     bool
 }
 
 type TickMsg time.Time
@@ -52,7 +53,7 @@ func NewModel(tabs []string) Model {
 		dockerClient: dockercmd.NewDockerClient(),
 		Tabs:         tabs,
 		TabContent:   contents,
-		pager:        PagerModel{content: string("idk")},
+		logsPager:    PagerModel{content: string("idk")},
 	}
 }
 
@@ -126,6 +127,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							panic(err)
 						}
 					}
+				case key.Matches(msg, ContainerKeymap.ToggleLogs):
+					m.showLogs = !m.showLogs
 				}
 
 			} else {
@@ -138,8 +141,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var Tabcmd tea.Cmd
 	m.TabContent[m.activeTab].list, Tabcmd = m.TabContent[m.activeTab].list.Update(msg)
-	pagerTemp, pagerCmd := m.pager.Update(msg)
-	m.pager = pagerTemp.(PagerModel)
+	pagerTemp, pagerCmd := m.logsPager.Update(msg)
+	m.logsPager = pagerTemp.(PagerModel)
 
 	cmds = append(cmds, Tabcmd, pagerCmd)
 
@@ -192,10 +195,7 @@ func (m Model) View() string {
 	}
 
 	list := m.TabContent[m.activeTab].View()
-	// curItem := m.getSelectedItem()
-	// infobox := PopulateInfoBox(tabId(m.activeTab), curItem)
-	// infobox = moreInfoStyle.Render(infobox)
-	infobox := m.pager.View()
+	infobox := m.getInfoBox()
 
 	//TODO: align info box to right edge of the window
 	body_with_info := lipgloss.JoinHorizontal(lipgloss.Top, list, infobox)
@@ -206,6 +206,17 @@ func (m Model) View() string {
 
 	doc.WriteString(body_with_info)
 	return docStyle.Render(doc.String())
+}
+
+// gets the infobox depending on whether m.showLogs is true or not
+func (m Model) getInfoBox() string {
+	curItem := m.getSelectedItem()
+	if m.showLogs {
+		return moreInfoStyle.Render(m.logsPager.View())
+	}
+
+	infobox := PopulateInfoBox(tabId(m.activeTab), curItem)
+	return moreInfoStyle.Render(infobox)
 }
 
 // helpers
