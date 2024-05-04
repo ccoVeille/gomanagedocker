@@ -50,7 +50,14 @@ func (dc *DockerClient) DeleteContainer(id string) error {
 
 // gets logs
 func (dc *DockerClient) GetContainerLogs(id string) (io.ReadCloser, error) {
-	rc, err := dc.cli.ContainerLogs(context.Background(), id, container.LogsOptions{})
+	rc, err := dc.cli.ContainerLogs(context.Background(), id, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Timestamps: false,
+		Follow:     false,
+		Tail:       "",
+		Details:    false,
+	})
 
 	if err != nil {
 		return nil, err
