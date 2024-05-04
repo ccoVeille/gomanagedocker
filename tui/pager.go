@@ -62,7 +62,7 @@ func (m PagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// we can initialize the viewport. The initial dimensions come in
 			// quickly, though asynchronously, which is why we wait for them
 			// here.
-			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.viewport = viewport.New(moreInfoStyle.GetWidth(), moreInfoStyle.GetHeight()-verticalMarginHeight)
 			m.viewport.YPosition = headerHeight
 			m.viewport.HighPerformanceRendering = useHighPerformanceRenderer
 			m.viewport.SetContent(m.content)
@@ -99,7 +99,7 @@ func (m PagerModel) View() string {
 		return "\n  Initializing..."
 	}
 	// return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
-	return fmt.Sprintf("%s\n%s\n%s", "ehader", m.viewport.View(), "footer")
+	return fmt.Sprintf("%s\n%s\n%s", "", m.viewport.View(), "")
 }
 
 func (m PagerModel) headerView() string {
