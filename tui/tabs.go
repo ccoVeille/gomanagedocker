@@ -22,14 +22,14 @@ const (
 )
 
 type Model struct {
-	dockerClient dockercmd.DockerClient
-	Tabs         []string
-	TabContent   []listModel
-	activeTab    int
-	width        int
-	height       int
-	logsPager    PagerModel
-	showLogs     bool
+	dockerClient      dockercmd.DockerClient
+	Tabs              []string
+	TabContent        []listModel
+	activeTab         int
+	width             int
+	height            int
+	logsPager         LogsPagerModel
+	showContainerLogs bool
 }
 
 type TickMsg time.Time
@@ -39,7 +39,8 @@ func doTick() tea.Cmd {
 }
 
 func (m Model) Init() tea.Cmd {
-	return doTick()
+	logsCmd := m.logsPager.Init()
+	return tea.Batch(doTick(), logsCmd)
 }
 
 func NewModel(tabs []string) Model {
@@ -53,7 +54,7 @@ func NewModel(tabs []string) Model {
 		dockerClient: dockercmd.NewDockerClient(),
 		Tabs:         tabs,
 		TabContent:   contents,
-		logsPager:    PagerModel{content: string("idk")},
+		logsPager:    LogsPagerModel{content: new(strings.Builder)},
 	}
 }
 
@@ -128,7 +129,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				case key.Matches(msg, ContainerKeymap.ToggleLogs):
-					m.showLogs = !m.showLogs
+					m.showContainerLogs = !m.showContainerLogs
 				}
 
 			} else {
@@ -138,11 +139,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if m.activeTab == int(containers) {
+		if containerinfo, ok := m.getSelectedItem().(containerItem); ok {
+			containerId := containerinfo.getId()
+			if containerId != m.logsPager.containerId {
+				log.Println(containerId, " set: ", m.logsPager.containerId)
+				//TODO: handle error
+				rc, err := m.dockerClient.GetContainerLogs(containerId)
+				if err != nil {
+					panic(err)
+				}
+				m.logsPager.setReaderCloser(rc)
+				m.logsPager.setCurrentContainerId(containerId)
+			}
+
+		}
+
+	}
+
 	var cmds []tea.Cmd
 	var Tabcmd tea.Cmd
 	m.TabContent[m.activeTab].list, Tabcmd = m.TabContent[m.activeTab].list.Update(msg)
 	pagerTemp, pagerCmd := m.logsPager.Update(msg)
-	m.logsPager = pagerTemp.(PagerModel)
+	m.logsPager = pagerTemp.(LogsPagerModel)
 
 	cmds = append(cmds, Tabcmd, pagerCmd)
 
@@ -209,13 +228,9 @@ func (m Model) View() string {
 }
 
 // gets the infobox depending on whether m.showLogs is true or not
-func (m Model) getInfoBox() string {
+func (m *Model) getInfoBox() string {
 	curItem := m.getSelectedItem()
 	if m.activeTab == int(containers) && m.showContainerLogs {
-		containerId := curItem.(containerItem).getId()
-		//TODO: handle error
-		rc, _ := m.dockerClient.GetContainerLogs(containerId)
-		m.logsPager.setReaderCloser(rc)
 		return moreInfoStyle.Render(m.logsPager.View())
 	}
 

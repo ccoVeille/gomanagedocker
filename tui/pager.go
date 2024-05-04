@@ -1,11 +1,12 @@
 package tui
 
-// An example program demonstrating the pager component from the Bubbles
-// component library.
-
 import (
 	"fmt"
+	"io"
+	"log"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,17 +35,26 @@ var (
 	}()
 )
 
-type PagerModel struct {
-	content  string
-	ready    bool
-	viewport viewport.Model
+type LogTick time.Time
+
+func logTicker() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return LogTick(t) })
 }
 
-func (m PagerModel) Init() tea.Cmd {
-	return nil
+type LogsPagerModel struct {
+	containerId string
+	rc          io.ReadCloser
+	content     *strings.Builder
+	ready       bool
+	viewport    viewport.Model
 }
 
-func (m PagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m LogsPagerModel) Init() tea.Cmd {
+	return logTicker()
+}
+
+func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log.Println("from pager", reflect.TypeOf(msg))
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -65,7 +75,13 @@ func (m PagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport = viewport.New(moreInfoStyle.GetWidth(), moreInfoStyle.GetHeight()-verticalMarginHeight)
 			m.viewport.YPosition = headerHeight
 			m.viewport.HighPerformanceRendering = useHighPerformanceRenderer
-			m.viewport.SetContent(m.content)
+
+			// read from m.rc and set viewport
+			if m.rc != nil {
+				buff, _ := io.ReadAll(m.rc)
+				m.content.Write(buff)
+				m.viewport.SetContent(m.content.String())
+			}
 			m.ready = true
 
 			// This is only necessary for high performance rendering, which in
@@ -85,6 +101,17 @@ func (m PagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// This is needed for high-performance rendering only.
 			cmds = append(cmds, viewport.Sync(m.viewport))
 		}
+	case LogTick:
+		if m.rc != nil {
+			buff, _ := io.ReadAll(m.rc)
+			m.content.Write(buff)
+			m.viewport.SetContent(m.content.String())
+			log.Println(m.content.String())
+			// readbytes, err := m.rc.Read(buf)
+			// log.Println(readbytes, err, buf)
+			// buf := make([]byte, 3)
+		}
+		cmds = append(cmds, logTicker())
 	}
 
 	// Handle keyboard and mouse events in the viewport
@@ -94,7 +121,7 @@ func (m PagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m PagerModel) View() string {
+func (m LogsPagerModel) View() string {
 	if !m.ready {
 		return "\n  Initializing..."
 	}
@@ -102,23 +129,29 @@ func (m PagerModel) View() string {
 	return fmt.Sprintf("%s\n%s\n%s", "", m.viewport.View(), "")
 }
 
-func (m PagerModel) headerView() string {
+func (m LogsPagerModel) headerView() string {
 	title := titleStyle.Render("Mr. Pager")
 	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }
 
-func (m PagerModel) footerView() string {
+func (m LogsPagerModel) footerView() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
 	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
+func (m *LogsPagerModel) setCurrentContainerId(id string) {
+	log.Println("settings containerid")
+	m.containerId = id
+}
+
+func (m *LogsPagerModel) setReaderCloser(rc io.ReadCloser) {
+	log.Println("settings rc")
+	if m.rc != nil {
+		m.rc.Close()
 	}
-	return b
+	m.rc = rc
 }
 
 // func main() {
