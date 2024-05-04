@@ -78,9 +78,7 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// read from m.rc and set viewport
 			if m.rc != nil {
-				buff, _ := io.ReadAll(m.rc)
-				m.content.Write(buff)
-				m.viewport.SetContent(m.content.String())
+				m.readMoreLogs()
 			}
 			m.ready = true
 
@@ -103,13 +101,7 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case LogTick:
 		if m.rc != nil {
-			buff, _ := io.ReadAll(m.rc)
-			m.content.Write(buff)
-			m.viewport.SetContent(m.content.String())
-			log.Println(m.content.String())
-			// readbytes, err := m.rc.Read(buf)
-			// log.Println(readbytes, err, buf)
-			// buf := make([]byte, 3)
+			m.readMoreLogs()
 		}
 		cmds = append(cmds, logTicker())
 	}
@@ -152,6 +144,21 @@ func (m *LogsPagerModel) setReaderCloser(rc io.ReadCloser) {
 		m.rc.Close()
 	}
 	m.rc = rc
+}
+
+func (m *LogsPagerModel) readMoreLogs() {
+	for {
+		buffer := make([]byte, 100)
+		bytesRead, _ := m.rc.Read(buffer)
+		if bytesRead == 0 {
+			log.Println("eof reached")
+			m.viewport.SetContent(m.content.String())
+			return
+		}
+
+		m.content.Write(buffer)
+	}
+
 }
 
 // func main() {
