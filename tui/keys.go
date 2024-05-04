@@ -20,6 +20,7 @@ type imgKeymap struct {
 type contKeymap struct {
 	ToggleListAll   key.Binding
 	ToggleStartStop key.Binding
+	ToggleLogs      key.Binding
 	Delete          key.Binding
 	Exec            key.Binding
 }
@@ -55,6 +56,10 @@ var ContainerKeymap = contKeymap{
 	ToggleStartStop: key.NewBinding(
 		key.WithKeys("s"),
 		key.WithHelp("s", "Toggle Start/Stop"),
+	),
+	ToggleLogs: key.NewBinding(
+		key.WithKeys("L"),
+		key.WithHelp("L", "Toggle Logs"),
 	),
 	Delete: key.NewBinding(
 		key.WithKeys("d"),
@@ -113,6 +118,7 @@ func getContainerKeymap() []key.Binding {
 	return []key.Binding{
 		ContainerKeymap.ToggleListAll,
 		ContainerKeymap.ToggleStartStop,
+		ContainerKeymap.ToggleLogs,
 		ContainerKeymap.Delete,
 		ContainerKeymap.Exec,
 	}
