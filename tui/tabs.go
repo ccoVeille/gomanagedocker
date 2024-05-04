@@ -28,6 +28,7 @@ type Model struct {
 	activeTab    int
 	width        int
 	height       int
+	pager        PagerModel
 }
 
 type TickMsg time.Time
@@ -51,6 +52,7 @@ func NewModel(tabs []string) Model {
 		dockerClient: dockercmd.NewDockerClient(),
 		Tabs:         tabs,
 		TabContent:   contents,
+		pager:        PagerModel{content: string("idk")},
 	}
 }
 
@@ -69,8 +71,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getList(index).SetWidth(msg.Width)
 			m.getList(index).SetHeight(msg.Height - 7)
 		}
-
-		return m, nil
 
 	case TickMsg:
 		m = m.updateContent()
@@ -135,10 +135,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	var cmd tea.Cmd
-	m.TabContent[m.activeTab].list, cmd = m.TabContent[m.activeTab].list.Update(msg)
+	var cmds []tea.Cmd
+	var Tabcmd tea.Cmd
+	m.TabContent[m.activeTab].list, Tabcmd = m.TabContent[m.activeTab].list.Update(msg)
+	pagerTemp, pagerCmd := m.pager.Update(msg)
+	m.pager = pagerTemp.(PagerModel)
 
-	return m, cmd
+	cmds = append(cmds, Tabcmd, pagerCmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
@@ -187,9 +192,10 @@ func (m Model) View() string {
 	}
 
 	list := m.TabContent[m.activeTab].View()
-	curItem := m.getSelectedItem()
-	infobox := PopulateInfoBox(tabId(m.activeTab), curItem)
-	infobox = moreInfoStyle.Render(infobox)
+	// curItem := m.getSelectedItem()
+	// infobox := PopulateInfoBox(tabId(m.activeTab), curItem)
+	// infobox = moreInfoStyle.Render(infobox)
+	infobox := m.pager.View()
 
 	//TODO: align info box to right edge of the window
 	body_with_info := lipgloss.JoinHorizontal(lipgloss.Top, list, infobox)
