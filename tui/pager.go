@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -47,9 +48,15 @@ type LogsPagerModel struct {
 	content     *strings.Builder
 	ready       bool
 	viewport    viewport.Model
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func (m LogsPagerModel) Init() tea.Cmd {
+	// go func() {
+	// 	m.readMoreLogs()
+
+	// }
 	return logTicker()
 }
 
@@ -78,7 +85,7 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// read from m.rc and set viewport
 			if m.rc != nil {
-				m.readMoreLogs()
+				m.startReadingLogs()
 			}
 			m.ready = true
 
@@ -100,9 +107,7 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, viewport.Sync(m.viewport))
 		}
 	case LogTick:
-		if m.rc != nil {
-			m.readMoreLogs()
-		}
+		m.viewport.SetContent(m.content.String())
 		cmds = append(cmds, logTicker())
 	}
 
@@ -141,22 +146,41 @@ func (m *LogsPagerModel) setCurrentContainerId(id string) {
 func (m *LogsPagerModel) setReaderCloser(rc io.ReadCloser) {
 	log.Println("settings rc")
 	if m.rc != nil {
-		m.rc.Close()
+		log.Println("cancelling rc")
+		m.cancel()
 	}
 	m.rc = rc
+	m.ctx, m.cancel = context.WithCancel(context.Background())
+	m.content.Reset()
 }
 
-func (m *LogsPagerModel) readMoreLogs() {
+func (m *LogsPagerModel) startReadingLogs() {
+	newLogsChannel := make(chan []byte)
+	log.Println("start reading logs")
+
+	go readLogs(newLogsChannel, m.rc)
+
+	for {
+		select {
+		case <-m.ctx.Done():
+			log.Println("closing reader")
+			m.rc.Close()
+			return
+		case newLogBuff := <-newLogsChannel:
+			m.content.Write(newLogBuff)
+		}
+	}
+
+}
+
+func readLogs(logsChannel chan []byte, rc io.Reader) {
 	for {
 		buffer := make([]byte, 100)
-		bytesRead, _ := m.rc.Read(buffer)
-		if bytesRead == 0 {
-			log.Println("eof reached")
-			m.viewport.SetContent(m.content.String())
+		_, err := rc.Read(buffer)
+		if err != nil {
 			return
 		}
-
-		m.content.Write(buffer)
+		logsChannel <- buffer
 	}
 
 }

@@ -151,6 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.logsPager.setReaderCloser(rc)
 				m.logsPager.setCurrentContainerId(containerId)
+				go m.logsPager.startReadingLogs()
 			}
 
 		}
