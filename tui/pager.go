@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -34,6 +35,7 @@ var (
 		b.Left = "┤"
 		return titleStyle.Copy().BorderStyle(b)
 	}()
+	str = lipgloss.NewStyle().Width(moreInfoStyle.GetWidth())
 )
 
 type LogTick time.Time
@@ -67,11 +69,11 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
-	switch msg := msg.(type) {
+	switch msg.(type) {
 	case tea.WindowSizeMsg:
-		headerHeight := lipgloss.Height(m.headerView())
-		footerHeight := lipgloss.Height(m.footerView())
-		verticalMarginHeight := headerHeight + footerHeight
+		// headerHeight := lipgloss.Height(m.headerView())
+		// footerHeight := lipgloss.Height(m.footerView())
+		// verticalMarginHeight := headerHeight + footerHeight
 
 		if !m.ready {
 			// Since this program is using the full size of the viewport we
@@ -79,24 +81,24 @@ func (m LogsPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// we can initialize the viewport. The initial dimensions come in
 			// quickly, though asynchronously, which is why we wait for them
 			// here.
-			m.viewport = viewport.New(moreInfoStyle.GetWidth(), moreInfoStyle.GetHeight()-verticalMarginHeight)
-			m.viewport.YPosition = headerHeight
-			m.viewport.HighPerformanceRendering = useHighPerformanceRenderer
+			m.viewport = viewport.New(moreInfoStyle.GetWidth()-2, moreInfoStyle.GetHeight()-2)
+			// m.viewport.YPosition = headerHeight
+			// m.viewport.HighPerformanceRendering = useHighPerformanceRenderer
 
 			// read from m.rc and set viewport
-			if m.rc != nil {
-				m.startReadingLogs()
-			}
+			// if m.rc != nil {
+			// 	m.startReadingLogs()
+			// }
 			m.ready = true
 
 			// This is only necessary for high performance rendering, which in
 			// most cases you won't need.
 			//
 			// Render the viewport one line below the header.
-			m.viewport.YPosition = headerHeight + 1
+			// m.viewport.YPosition = headerHeight + 1
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - verticalMarginHeight
+			m.viewport.Width = moreInfoStyle.GetWidth() - 2
+			m.viewport.Height = moreInfoStyle.GetHeight() - 2
 		}
 
 		if useHighPerformanceRenderer {
@@ -123,7 +125,7 @@ func (m LogsPagerModel) View() string {
 		return "\n  Initializing..."
 	}
 	// return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
-	return fmt.Sprintf("%s\n%s\n%s", "", m.viewport.View(), "")
+	return fmt.Sprintf("%s", m.viewport.View())
 }
 
 func (m LogsPagerModel) headerView() string {
@@ -174,9 +176,11 @@ func (m *LogsPagerModel) startReadingLogs() {
 }
 
 func readLogs(logsChannel chan []byte, rc io.Reader) {
+	buff := bufio.NewReader(rc)
 	for {
-		buffer := make([]byte, 100)
-		_, err := rc.Read(buffer)
+		// buffer := make([]byte, 100)
+		buffer, err := buff.ReadBytes('\n')
+		// _, err := rc.Read(buffer)
 		if err != nil {
 			return
 		}

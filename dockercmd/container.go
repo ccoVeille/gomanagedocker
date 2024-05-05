@@ -31,6 +31,7 @@ func (dc *DockerClient) ToggleStartStopContainer(id string) error {
 	}
 
 	if info.State.Running {
+		//FIX: THIS TAKES 10 SECONDS TO FINISH, PUT THIS IN A GO ROUTINE ?
 		return dc.cli.ContainerStop(context.Background(), id, container.StopOptions{})
 	} else {
 		return dc.cli.ContainerStart(context.Background(), id, container.StartOptions{})
@@ -40,11 +41,11 @@ func (dc *DockerClient) ToggleStartStopContainer(id string) error {
 // Deletes the container
 func (dc *DockerClient) DeleteContainer(id string) error {
 	// stop the container first
-	err := dc.ToggleStartStopContainer(id)
+	// err := dc.ToggleStartStopContainer(id)
 
-	if err != nil {
-		return err
-	}
+	// if err != nil {
+	// 	return err
+	// }
 	return dc.cli.ContainerRemove(context.Background(), id, container.RemoveOptions{})
 }
 
@@ -54,7 +55,7 @@ func (dc *DockerClient) GetContainerLogs(id string) (io.ReadCloser, error) {
 		ShowStdout: true,
 		ShowStderr: true,
 		Timestamps: false,
-		Follow:     false,
+		Follow:     true,
 		Tail:       "",
 		Details:    false,
 	})
